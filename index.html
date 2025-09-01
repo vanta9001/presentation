@@ -2,249 +2,246 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Presentation — single-page viewer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Presentation — Fullscreen Viewer</title>
 
   <style>
-    /* Make the page exactly one viewport tall and remove page scrolling */
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden; /* disables page scroll — PDF can still be scrolled inside the viewer */
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: linear-gradient(180deg, #0f172a 0%, #07102a 100%);
-      color: #ffffff;
-    }
-
-    /* container fills viewport */
-    .container {
+    /* Reset & full-viewport */
+    html,body {
       height: 100%;
       width: 100%;
-      position: relative;
-      display: grid;
-      grid-template-rows: auto 1fr;
-      gap: 0;
-      align-items: stretch;
-    }
-
-    /* header area for title + controls */
-    header {
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 18px;
-      backdrop-filter: blur(6px);
-      background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
-
-    .title {
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-
-    .logo {
-      width:36px;
-      height:36px;
-      border-radius:6px;
-      display:inline-grid;
-      place-items:center;
-      font-weight:700;
-      background:linear-gradient(135deg,#5eead4,#60a5fa);
-      color:#0b1220;
-      box-shadow: 0 6px 16px rgba(2,6,23,0.6);
-    }
-
-    h1 {
-      font-size: 16px;
       margin: 0;
-      line-height: 1;
-      letter-spacing: -0.2px;
+      padding: 0;
+      overflow: hidden; /* page won't scroll */
+      background: #000; /* behind the PDF */
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
 
-    p.subtitle {
-      margin: 0;
-      font-size: 12px;
-      opacity: 0.85;
+    /* PDF fills the entire viewport (no header space) */
+    .pdf-frame {
+      position: fixed;
+      inset: 0;            /* top:0; right:0; bottom:0; left:0; */
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      display: block;
+      background: #fff;
+      /* avoid sub-pixel gaps on some browsers */
+      transform: translateZ(0);
     }
 
-    /* controls */
+    /* Floating, minimal controls */
     .controls {
-      display:flex;
-      gap:10px;
-      align-items:center;
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 9999;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      pointer-events: auto;
     }
 
-    .btn {
+    .control-btn {
       -webkit-appearance: none;
       appearance: none;
       border: 0;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      background: linear-gradient(90deg, #06b6d4, #3b82f6);
+      padding: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: inline-grid;
+      place-items: center;
+      background: rgba(18,18,18,0.56);
       color: white;
-      box-shadow: 0 6px 18px rgba(37,99,235,0.18);
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
+      backdrop-filter: blur(6px) saturate(1.05);
+      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease;
       text-decoration: none;
+      font-weight: 700;
+      font-size: 16px;
     }
 
-    .btn.secondary {
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.06);
-      color: #e6eef8;
-      box-shadow: none;
-      font-weight: 600;
+    .control-btn:hover { transform: translateY(-2px) scale(1.02); background: rgba(18,18,18,0.72); }
+    .control-btn:active { transform: translateY(0) scale(.99); }
+
+    /* small tooltip label on hover */
+    .label {
+      font-size: 12px;
+      color: #e8eef8;
+      background: rgba(3,7,18,0.6);
+      border-radius: 6px;
+      padding: 6px 8px;
+      white-space: nowrap;
+      margin-right: 6px;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity .12s ease, transform .12s ease;
+      pointer-events: none;
     }
 
-    /* PDF viewer fills the rest of the viewport */
-    .viewer {
-      height: calc(100% - 56px); /* subtract header height (approx) */
-      width: 100%;
-      position: relative;
-    }
+    .control-wrap:hover .label { opacity: 1; transform: translateY(0); }
 
-    /* keep the embedded PDF filling the area (internal scrolling allowed) */
-    iframe.pdf-frame, embed.pdf-frame, object.pdf-frame {
-      width: 100%;
-      height: 100%;
-      border: 0;
-      display: block;
-    }
+    /* Optional: hide controls after a short idle to maximize unobstructed view */
+    .controls.idle { opacity: .18; transition: opacity .6s ease; }
+    .controls.hidden { opacity: 0; pointer-events: none; }
 
-    /* small responsive adjustments for very small screens */
-    @media (max-width:420px) {
-      h1 { font-size:14px; }
-      .logo { width:32px; height:32px; font-size:13px; }
+    /* Fallback notice (centered) if PDF can't be embedded */
+    .fallback {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 5000;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      color: #fff;
+      background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.85));
+      gap: 12px;
     }
-
-    /* optional: show a polite fallback message overlay when PDF can't be loaded */
-    .error {
-      position:absolute;
-      inset:0;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding: 24px;
-      background:linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.85));
-      color: #ffdede;
-      z-index:50;
-    }
-    .error.visible { display:flex; }
-    .error p { margin:0 0 12px 0; font-weight:600; }
-    .error a { color: #fff; text-decoration:underline; }
+    .fallback.visible { display: flex; }
+    .fallback a { color: #9bdfff; text-decoration: underline; font-weight:600; }
   </style>
 </head>
 <body>
-  <div class="container" role="main">
-    <header>
-      <div class="title" aria-hidden="false">
-        <div class="logo" aria-hidden="true">P</div>
-        <div>
-          <h1>Presentation</h1>
-          <p class="subtitle">Single-page viewer — presentation.pdf</p>
-        </div>
-      </div>
+  <!-- Full-viewport PDF -->
+  <iframe id="pdfFrame" class="pdf-frame" src="presentation.pdf" title="Presentation PDF" allowfullscreen webkitallowfullscreen mozallowfullscreen>
+    <!-- Fallback content for very old browsers -->
+    <div style="color:#fff;padding:20px;">If the PDF doesn't appear, <a href="presentation.pdf" style="color:#9bdfff;">download it here</a>.</div>
+  </iframe>
 
-      <div class="controls">
-        <!-- Download anchor: 'download' attribute used when same-origin -->
-        <a id="downloadLink" class="btn" href="presentation.pdf" download="presentation.pdf" title="Download presentation.pdf">
-          ⬇ Download
-        </a>
+  <!-- Floating controls -->
+  <div id="controls" class="controls" aria-hidden="false">
+    <div class="control-wrap" style="display:flex;align-items:center;">
+      <div class="label" aria-hidden="true">Download</div>
+      <!-- Anchor with download attribute (works same-origin / local file) -->
+      <a id="downloadLink" class="control-btn" href="presentation.pdf" download="presentation.pdf" title="Download presentation.pdf" role="button" aria-label="Download PDF">⬇</a>
+    </div>
 
-        <!-- Fallback open in new tab -->
-        <button id="openBtn" class="btn secondary" title="Open in new tab" onclick="openInNewTab()">
-          ↗ Open
-        </button>
-      </div>
-    </header>
+    <div class="control-wrap" style="display:flex;align-items:center;">
+      <div class="label" aria-hidden="true">Open in new tab</div>
+      <button id="openBtn" class="control-btn" title="Open in new tab" aria-label="Open PDF in new tab">↗</button>
+    </div>
 
-    <div class="viewer" id="viewer">
-      <!-- Primary embed: iframe is generally reliable and allows internal PDF scrolling -->
-      <iframe id="pdfFrame" class="pdf-frame" src="presentation.pdf" type="application/pdf" title="Presentation PDF">
-        <!-- Fallback content for browsers that do not support embedding -->
-        <p style="padding:18px; color:#fff;">Your browser does not support inline PDF viewing. <a href="presentation.pdf" style="color:#9bdfff;">Download the PDF</a></p>
-      </iframe>
+    <div class="control-wrap" style="display:flex;align-items:center;">
+      <div class="label" aria-hidden="true">Fit to width</div>
+      <button id="fitBtn" class="control-btn" title="Fit to width" aria-label="Fit to width">⤢</button>
+    </div>
+  </div>
 
-      <!-- error overlay -->
-      <div id="error" class="error" role="alert">
-        <div>
-          <p>Couldn't load <strong>presentation.pdf</strong>.</p>
-          <p>Make sure the file <code>presentation.pdf</code> is in the same folder as this <code>index.html</code> and that it is reachable by the browser.</p>
-          <a href="presentation.pdf" id="errorDownload">Click to download directly</a>
-        </div>
-      </div>
+  <!-- Fallback overlay -->
+  <div id="fallback" class="fallback" role="alert">
+    <div>
+      <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Couldn't load presentation.pdf inline</div>
+      <div style="opacity:.92;margin-bottom:12px;">Make sure <code>presentation.pdf</code> is in the same folder as this <code>index.html</code>.</div>
+      <div><a id="fallbackLink" href="presentation.pdf">Click here to download the PDF</a></div>
     </div>
   </div>
 
   <script>
-    // Try to detect if the PDF is reachable (same-origin fetch). If not, show the error overlay.
     (function(){
       const pdfPath = 'presentation.pdf';
-      const errorEl = document.getElementById('error');
-      const errorDownload = document.getElementById('errorDownload');
+      const downloadLink = document.getElementById('downloadLink');
+      const openBtn = document.getElementById('openBtn');
+      const fitBtn = document.getElementById('fitBtn');
+      const fallback = document.getElementById('fallback');
+      const controls = document.getElementById('controls');
+      const frame = document.getElementById('pdfFrame');
 
-      // Only attempt a HEAD request if fetch is allowed; some hosts may block HEAD, so use GET with range for small overhead
-      fetch(pdfPath, { method: 'GET' , headers: { 'Range': 'bytes=0-1023' } })
-        .then(response => {
-          if (!response.ok || response.status === 416) {
-            // 416 (range not satisfiable) could still mean file exists but is smaller; check ok
-            if (!response.ok) throw new Error('PDF not accessible: ' + response.status);
-          }
-          // file looks reachable — do nothing
+      // Try a small-range fetch to verify file is reachable (reduces bandwidth)
+      fetch(pdfPath, { method: 'GET', headers: { 'Range': 'bytes=0-1023' } })
+        .then(resp => {
+          if (!resp.ok && resp.status !== 206) throw new Error('not reachable: ' + resp.status);
+          // reachable -> nothing to do
         })
         .catch(err => {
           console.warn('PDF fetch failed:', err);
-          // show error overlay and set fallback link
-          errorEl.classList.add('visible');
-          errorDownload.setAttribute('href', pdfPath);
-          // also remove download attribute (some browsers may prompt wrongly)
-          document.getElementById('downloadLink').removeAttribute('download');
+          fallback.classList.add('visible');
+          // remove download attribute if not same-origin
+          try { downloadLink.removeAttribute('download'); } catch(e){}
         });
 
-      // Download button fallback for browsers that ignore 'download'
-      const dl = document.getElementById('downloadLink');
-      dl.addEventListener('click', function(e){
-        // If download attribute isn't supported, trigger programmatic download
-        // We still allow default for modern browsers; the following is extra safety:
+      // Download fallback: attempt programmatic fetch and blob download if browser doesn't honor download attr
+      downloadLink.addEventListener('click', function(e){
+        // If the browser handles it natively, let it. We'll also try a JS fallback but quietly.
+        // Prevent double action only if we perform JS fetch.
         try {
-          const link = document.createElement('a');
-          link.href = pdfPath;
-          link.download = 'presentation.pdf';
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
           e.preventDefault();
-        } catch (e) {
-          // ignore; default link will try to open instead
-        }
+        } catch(e){}
+        // Try programmatic fetch (CORS must allow; same-origin works)
+        fetch(pdfPath)
+          .then(r => {
+            if (!r.ok) throw new Error('Network response not ok');
+            return r.blob();
+          })
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'presentation.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          })
+          .catch(err => {
+            // last resort - open link in new tab so user can save manually
+            window.open(pdfPath, '_blank', 'noopener');
+          });
       });
 
-    })();
+      openBtn.addEventListener('click', function(){ window.open(pdfPath, '_blank', 'noopener'); });
 
-    function openInNewTab() {
-      const pdfPath = 'presentation.pdf';
-      window.open(pdfPath, '_blank', 'noopener');
-    }
+      // Fit-to-width: try using built-in viewer parameters where supported (PDF.js or Chrome)
+      // Many browsers accept #zoom=fitH or #view=fitH; try a few common hash parameters.
+      fitBtn.addEventListener('click', function(){
+        const candidates = [
+          pdfPath + '#zoom=100',        // generic
+          pdfPath + '#zoom=fitH',       // some viewers
+          pdfPath + '#view=FitH',       // Adobe-ish
+          pdfPath + '#toolbar=0',       // hide toolbar if supported
+          pdfPath + '#zoom=page-width'  // some viewers
+        ];
+        // try each variant by reloading the iframe src (first that loads will be used, but we just set the last tried)
+        frame.src = candidates[1];
+        // small visual feedback
+        fitBtn.style.transform = 'scale(.98)';
+        setTimeout(()=> fitBtn.style.transform = '', 140);
+      });
 
-    // Prevent page-level scrolling via keyboard (arrow keys / space) while allowing PDF iframe internal scrolling
-    window.addEventListener('keydown', function(e) {
-      const keysThatScroll = ['ArrowUp','ArrowDown','PageUp','PageDown','Space'];
-      if (keysThatScroll.includes(e.code)) {
-        // only block when focus is NOT inside the iframe
-        const active = document.activeElement;
-        if (active && active.tagName !== 'IFRAME') {
+      // Auto-hide controls after idle (makes them unobtrusive)
+      let idleTimer = null;
+      const idleTimeout = 2200; // ms
+      function resetIdle() {
+        controls.classList.remove('idle','hidden');
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(()=> controls.classList.add('idle'), idleTimeout);
+      }
+      ['mousemove','touchstart','keydown'].forEach(evt => window.addEventListener(evt, resetIdle, { passive: true }));
+      resetIdle();
+
+      // Keyboard shortcuts: 'd' => download, 'o' => open, 'f' => fit
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'd' || e.key === 'D') { e.preventDefault(); downloadLink.click(); }
+        if (e.key === 'o' || e.key === 'O') { e.preventDefault(); openBtn.click(); }
+        if (e.key === 'f' || e.key === 'F') { e.preventDefault(); fitBtn.click(); }
+      });
+
+      // Prevent page scrolling keys from affecting parent page (keeps all interaction focused on embedded PDF)
+      window.addEventListener('keydown', function(e){
+        const keysThatScroll = ['ArrowUp','ArrowDown','PageUp','PageDown','Space','Home','End'];
+        if (keysThatScroll.includes(e.code)) {
+          // If focus is not inside an element that would handle scrolling, prevent default so the parent doesn't scroll.
+          // Focus inside iframe can't be detected cross-origin; but since the page itself has no scroll, blocking is fine.
           e.preventDefault();
         }
-      }
-    }, { passive: false });
+      }, { passive: false });
+
+    })();
   </script>
 </body>
 </html>
