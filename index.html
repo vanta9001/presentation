@@ -34,8 +34,8 @@
     /* Floating, minimal controls */
     .controls {
       position: fixed;
-      top: 18px;
-      right: 18px;
+      top: 20px; /* Adjusted for spacing */
+      right: 20px; /* Adjusted for spacing */
       z-index: 9999;
       display: flex;
       gap: 10px;
@@ -58,17 +58,24 @@
       backdrop-filter: blur(6px) saturate(1.05);
       box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
       cursor: pointer;
-      transition: transform .12s ease, background .12s ease;
-      text-decoration: none;
+      transition: transform .12s ease, background .12s ease, opacity .3s ease;
+      opacity: 0.7; /* Initial dimmed state */
       font-weight: 700;
       font-size: 16px;
     }
 
-    .control-btn:hover { transform: translateY(-2px) scale(1.02); background: rgba(18, 18, 18, 0.72); }
-    .control-btn:active { transform: translateY(0) scale(.99); }
+    .control-btn:hover { 
+      transform: translateY(-2px) scale(1.02); 
+      background: rgba(18, 18, 18, 0.72); 
+      opacity: 1; /* Full opacity on hover */
+    }
+    .control-btn:active { 
+      transform: translateY(0) scale(.99); 
+    }
   </style>
 </head>
 <body>
+
   <!-- Full-viewport PDF -->
   <iframe id="pdfFrame" class="pdf-frame" src="presentation.pdf" title="Presentation PDF" allowfullscreen webkitallowfullscreen mozallowfullscreen>
     <div style="color:#fff;padding:20px;">If the PDF doesn't appear, <a href="presentation.pdf" style="color:#9bdfff;">download it here</a>.</div>
@@ -76,20 +83,9 @@
 
   <!-- Floating controls -->
   <div id="controls" class="controls" aria-hidden="false">
-    <div class="control-wrap" style="display:flex;align-items:center;">
-      <div class="label" aria-hidden="true">Download</div>
-      <a id="downloadLink" class="control-btn" href="presentation.pdf" download="presentation.pdf" title="Download presentation.pdf" role="button" aria-label="Download PDF">⬇</a>
-    </div>
-
-    <div class="control-wrap" style="display:flex;align-items:center;">
-      <div class="label" aria-hidden="true">Maximize</div>
-      <button id="fullscreenBtn" class="control-btn" title="Maximize" aria-label="Maximize PDF">⛶</button>
-    </div>
-
-    <div class="control-wrap" style="display:flex;align-items:center;">
-      <div class="label" aria-hidden="true">Open in new tab</div>
-      <button id="openBtn" class="control-btn" title="Open in new tab" aria-label="Open PDF in new tab">↗</button>
-    </div>
+    <a id="downloadLink" class="control-btn" href="presentation.pdf" download="presentation.pdf" title="Download presentation.pdf" role="button" aria-label="Download PDF">⬇</a>
+    <button id="fullscreenBtn" class="control-btn" title="Maximize" aria-label="Maximize PDF">⛶</button>
+    <button id="openBtn" class="control-btn" title="Open in new tab" aria-label="Open PDF in new tab">↗</button>
   </div>
 
   <script>
@@ -117,5 +113,6 @@
       });
     })();
   </script>
+
 </body>
 </html>
