@@ -7,29 +7,28 @@
 
   <style>
     /* Reset & full-viewport */
-    html,body {
+    html, body {
       height: 100%;
       width: 100%;
       margin: 0;
       padding: 0;
       overflow: hidden; /* page won't scroll */
       background: #000; /* behind the PDF */
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
 
     /* PDF fills the entire viewport (no header space) */
     .pdf-frame {
       position: fixed;
-      inset: 0;            /* top:0; right:0; bottom:0; left:0; */
+      inset: 0; /* top:0; right:0; bottom:0; left:0; */
       width: 100vw;
       height: 100vh;
       border: none;
       display: block;
       background: #fff;
-      /* avoid sub-pixel gaps on some browsers */
-      transform: translateZ(0);
+      transform: translateZ(0); /* avoid sub-pixel gaps on some browsers */
     }
 
     /* Floating, minimal controls */
@@ -54,10 +53,10 @@
       border-radius: 10px;
       display: inline-grid;
       place-items: center;
-      background: rgba(18,18,18,0.56);
+      background: rgba(18, 18, 18, 0.56);
       color: white;
       backdrop-filter: blur(6px) saturate(1.05);
-      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
       cursor: pointer;
       transition: transform .12s ease, background .12s ease;
       text-decoration: none;
@@ -65,52 +64,13 @@
       font-size: 16px;
     }
 
-    .control-btn:hover { transform: translateY(-2px) scale(1.02); background: rgba(18,18,18,0.72); }
+    .control-btn:hover { transform: translateY(-2px) scale(1.02); background: rgba(18, 18, 18, 0.72); }
     .control-btn:active { transform: translateY(0) scale(.99); }
-
-    /* small tooltip label on hover */
-    .label {
-      font-size: 12px;
-      color: #e8eef8;
-      background: rgba(3,7,18,0.6);
-      border-radius: 6px;
-      padding: 6px 8px;
-      white-space: nowrap;
-      margin-right: 6px;
-      opacity: 0;
-      transform: translateY(-4px);
-      transition: opacity .12s ease, transform .12s ease;
-      pointer-events: none;
-    }
-
-    .control-wrap:hover .label { opacity: 1; transform: translateY(0); }
-
-    /* Optional: hide controls after a short idle to maximize unobstructed view */
-    .controls.idle { opacity: .18; transition: opacity .6s ease; }
-    .controls.hidden { opacity: 0; pointer-events: none; }
-
-    /* Fallback notice (centered) if PDF can't be embedded */
-    .fallback {
-      position: fixed;
-      inset: 0;
-      display: none;
-      z-index: 5000;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 20px;
-      color: #fff;
-      background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0.85));
-      gap: 12px;
-    }
-    .fallback.visible { display: flex; }
-    .fallback a { color: #9bdfff; text-decoration: underline; font-weight:600; }
   </style>
 </head>
 <body>
   <!-- Full-viewport PDF -->
   <iframe id="pdfFrame" class="pdf-frame" src="presentation.pdf" title="Presentation PDF" allowfullscreen webkitallowfullscreen mozallowfullscreen>
-    <!-- Fallback content for very old browsers -->
     <div style="color:#fff;padding:20px;">If the PDF doesn't appear, <a href="presentation.pdf" style="color:#9bdfff;">download it here</a>.</div>
   </iframe>
 
@@ -118,27 +78,17 @@
   <div id="controls" class="controls" aria-hidden="false">
     <div class="control-wrap" style="display:flex;align-items:center;">
       <div class="label" aria-hidden="true">Download</div>
-      <!-- Anchor with download attribute (works same-origin / local file) -->
       <a id="downloadLink" class="control-btn" href="presentation.pdf" download="presentation.pdf" title="Download presentation.pdf" role="button" aria-label="Download PDF">⬇</a>
+    </div>
+
+    <div class="control-wrap" style="display:flex;align-items:center;">
+      <div class="label" aria-hidden="true">Maximize</div>
+      <button id="fullscreenBtn" class="control-btn" title="Maximize" aria-label="Maximize PDF">⛶</button>
     </div>
 
     <div class="control-wrap" style="display:flex;align-items:center;">
       <div class="label" aria-hidden="true">Open in new tab</div>
       <button id="openBtn" class="control-btn" title="Open in new tab" aria-label="Open PDF in new tab">↗</button>
-    </div>
-
-    <div class="control-wrap" style="display:flex;align-items:center;">
-      <div class="label" aria-hidden="true">Fit to width</div>
-      <button id="fitBtn" class="control-btn" title="Fit to width" aria-label="Fit to width">⤢</button>
-    </div>
-  </div>
-
-  <!-- Fallback overlay -->
-  <div id="fallback" class="fallback" role="alert">
-    <div>
-      <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Couldn't load presentation.pdf inline</div>
-      <div style="opacity:.92;margin-bottom:12px;">Make sure <code>presentation.pdf</code> is in the same folder as this <code>index.html</code>.</div>
-      <div><a id="fallbackLink" href="presentation.pdf">Click here to download the PDF</a></div>
     </div>
   </div>
 
@@ -147,100 +97,24 @@
       const pdfPath = 'presentation.pdf';
       const downloadLink = document.getElementById('downloadLink');
       const openBtn = document.getElementById('openBtn');
-      const fitBtn = document.getElementById('fitBtn');
-      const fallback = document.getElementById('fallback');
-      const controls = document.getElementById('controls');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
       const frame = document.getElementById('pdfFrame');
 
-      // Try a small-range fetch to verify file is reachable (reduces bandwidth)
-      fetch(pdfPath, { method: 'GET', headers: { 'Range': 'bytes=0-1023' } })
-        .then(resp => {
-          if (!resp.ok && resp.status !== 206) throw new Error('not reachable: ' + resp.status);
-          // reachable -> nothing to do
-        })
-        .catch(err => {
-          console.warn('PDF fetch failed:', err);
-          fallback.classList.add('visible');
-          // remove download attribute if not same-origin
-          try { downloadLink.removeAttribute('download'); } catch(e){}
-        });
-
-      // Download fallback: attempt programmatic fetch and blob download if browser doesn't honor download attr
-      downloadLink.addEventListener('click', function(e){
-        // If the browser handles it natively, let it. We'll also try a JS fallback but quietly.
-        // Prevent double action only if we perform JS fetch.
-        try {
-          e.preventDefault();
-        } catch(e){}
-        // Try programmatic fetch (CORS must allow; same-origin works)
-        fetch(pdfPath)
-          .then(r => {
-            if (!r.ok) throw new Error('Network response not ok');
-            return r.blob();
-          })
-          .then(blob => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'presentation.pdf';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-          })
-          .catch(err => {
-            // last resort - open link in new tab so user can save manually
-            window.open(pdfPath, '_blank', 'noopener');
-          });
-      });
-
+      // Open PDF in new tab
       openBtn.addEventListener('click', function(){ window.open(pdfPath, '_blank', 'noopener'); });
 
-      // Fit-to-width: try using built-in viewer parameters where supported (PDF.js or Chrome)
-      // Many browsers accept #zoom=fitH or #view=fitH; try a few common hash parameters.
-      fitBtn.addEventListener('click', function(){
-        const candidates = [
-          pdfPath + '#zoom=100',        // generic
-          pdfPath + '#zoom=fitH',       // some viewers
-          pdfPath + '#view=FitH',       // Adobe-ish
-          pdfPath + '#toolbar=0',       // hide toolbar if supported
-          pdfPath + '#zoom=page-width'  // some viewers
-        ];
-        // try each variant by reloading the iframe src (first that loads will be used, but we just set the last tried)
-        frame.src = candidates[1];
-        // small visual feedback
-        fitBtn.style.transform = 'scale(.98)';
-        setTimeout(()=> fitBtn.style.transform = '', 140);
-      });
-
-      // Auto-hide controls after idle (makes them unobtrusive)
-      let idleTimer = null;
-      const idleTimeout = 2200; // ms
-      function resetIdle() {
-        controls.classList.remove('idle','hidden');
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(()=> controls.classList.add('idle'), idleTimeout);
-      }
-      ['mousemove','touchstart','keydown'].forEach(evt => window.addEventListener(evt, resetIdle, { passive: true }));
-      resetIdle();
-
-      // Keyboard shortcuts: 'd' => download, 'o' => open, 'f' => fit
-      window.addEventListener('keydown', (e) => {
-        if (e.key === 'd' || e.key === 'D') { e.preventDefault(); downloadLink.click(); }
-        if (e.key === 'o' || e.key === 'O') { e.preventDefault(); openBtn.click(); }
-        if (e.key === 'f' || e.key === 'F') { e.preventDefault(); fitBtn.click(); }
-      });
-
-      // Prevent page scrolling keys from affecting parent page (keeps all interaction focused on embedded PDF)
-      window.addEventListener('keydown', function(e){
-        const keysThatScroll = ['ArrowUp','ArrowDown','PageUp','PageDown','Space','Home','End'];
-        if (keysThatScroll.includes(e.code)) {
-          // If focus is not inside an element that would handle scrolling, prevent default so the parent doesn't scroll.
-          // Focus inside iframe can't be detected cross-origin; but since the page itself has no scroll, blocking is fine.
-          e.preventDefault();
+      // Trigger fullscreen mode
+      fullscreenBtn.addEventListener('click', function() {
+        if (frame.requestFullscreen) {
+          frame.requestFullscreen();
+        } else if (frame.mozRequestFullScreen) { // Firefox
+          frame.mozRequestFullScreen();
+        } else if (frame.webkitRequestFullscreen) { // Chrome, Safari and Opera
+          frame.webkitRequestFullscreen();
+        } else if (frame.msRequestFullscreen) { // IE/Edge
+          frame.msRequestFullscreen();
         }
-      }, { passive: false });
-
+      });
     })();
   </script>
 </body>
